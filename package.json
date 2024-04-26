@@ -5,6 +5,8 @@
   "author": "haoda",
   "license": "Apache-2.0",
   "dependencies": {
+    "koa-bodyparser": "^4.4.1",
+    "koa-jwt": "^4.0.4",
     "qrcode-terminal": "^0.12.0",
     "wechaty": "^1.19.10",
     "wechaty-puppet": "^1.19.6",
@@ -17,7 +19,9 @@
   },
   "scripts": {
     "demo": "npx ts-node main.ts",
-    "demo-esm": "cross-env NODE_OPTIONS=\"--no-warnings --loader=ts-node/esm\" node main.ts"
+    "demo-esm": "cross-env NODE_OPTIONS=\"--no-warnings --loader=ts-node/esm\" node main.ts",
+    "start": "tsc && NODE_ENV=development node ./dist/app.js ",
+    "dev": "tsc && NODE_ENV=development node ./dist/src/app.js "
   },
   "engines": {
     "node": ">= 16",
