@@ -1,52 +1,56 @@
 import * as fs from 'fs';
 import * as Router from 'koa-router';
-import { BaseContext } from "koa";
+import {BaseContext} from "koa";
 import * as Koa from 'koa';
-const jwt = require('koa-jwt')({ secret: 'shared-secret' });
+
 export class Loader {
     router: Router = new Router;
     app: Koa;
     controller: any = {};
+
     constructor(app: Koa) {
         this.app = app;
     }
+
     loadService() {
         const service = fs.readdirSync(__dirname + '/service');
         // var that = this;
-       // console.log(this.app);
+        // console.log(this.app);
         Object.defineProperty(this.app.context, 'service', {
             get() {
-              //  console.log('get');
+                //  console.log('get');
 
                 if (!(<any>this)['cache']) {
                     (<any>this)['cache'] = {};
                 }
                 const loaded = (<any>this)['cache'];
-               // console.log(loaded);
+                // console.log(loaded);
                 if (!loaded['service']) {
                     loaded['service'] = {};
                     service.forEach((d) => {
                         const name = d.split('.')[0];
                         const mod = require(__dirname + '/service/' + d);
-console.log(name + ";" + mod.toString());
+                        console.log(name + ";");
                         loaded['service'][name] = new mod(this);  //注意这里传入
                     });
-                 //   console.log(loaded.service);
+                    //   console.log(loaded.service);
 
                     return loaded.service;
                 }
-              //  console.log(loaded.service);
+                //  console.log(loaded.service);
 
                 return loaded.service;
             }
         });
 
     }
+
     loadController() {
         const dirs = fs.readdirSync(__dirname + '/controller');
         dirs.forEach((filename) => {
             const property = filename.split('.')[0];
             const mod = require(__dirname + '/controller/' + filename).default;
+            console.log('property:' + property + ";mod:" + mod)
             if (mod) {
                 const methodNames = Object.getOwnPropertyNames(mod.prototype).filter((names) => {
                     if (names !== 'constructor') {
@@ -59,9 +63,12 @@ console.log(name + ";" + mod.toString());
                         methodNames.forEach((name) => {
                             merge[name] = {
                                 type: mod,
+                                filename: filename,
                                 methodName: name
                             }
                         })
+                        console.log('merge:' + merge)
+
                         return merge;
                     }
                 })
@@ -72,18 +79,33 @@ console.log(name + ";" + mod.toString());
     loadRouter() {
         this.loadController();
         this.loadService();
-         const mod = require(__dirname + '/router.js');
+        const mod = require(__dirname + '/router.js');
         const routers = mod(this.controller);
+        const cache = new Map();
         Object.keys(routers).forEach((key) => {
             const [method, path] = key.split(' ');
-
-            (<any>this.router)[method](path, jwt, async (ctx: BaseContext) => {
+            console.log('method:' + method + ",path:" + path);
+            (<any>this.router)[method](path, async (ctx: BaseContext) => {
                 const _class = routers[key].type;
+                const filename = routers[key].filename;
                 const handler = routers[key].methodName;
-                const instance = new _class(ctx);  //注意这里传入
-                await  instance[handler]();
+                console.log('handler:' + handler + ";filename:" + filename);
+                console.log(cache);
+                let instance = null;
+                // if (cache.get(filename) != null) {
+                //     instance = cache.get(filename);
+                //     console.log('instance存在')
+                // } else {
+                    instance = new _class(ctx);  //注意这里传入
+                    cache.set(filename, instance);
+                    console.log('instance不存在')
+                // }
+
+              let res =  await instance[handler]();
+                console.log('res:' + res);
             })
         })
+        console.log('this.router.routes():' + this.router.routes());
         return this.router.routes();
     }
 }

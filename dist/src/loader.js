@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Loader = void 0;
 const fs = require("fs");
 const Router = require("koa-router");
-const jwt = require('koa-jwt')({ secret: 'shared-secret' });
 class Loader {
     constructor(app) {
         this.router = new Router;
@@ -27,7 +26,7 @@ class Loader {
                     service.forEach((d) => {
                         const name = d.split('.')[0];
                         const mod = require(__dirname + '/service/' + d);
-                        console.log(name + ";" + mod.toString());
+                        console.log(name + ";");
                         loaded['service'][name] = new mod(this); //注意这里传入
                     });
                     //   console.log(loaded.service);
@@ -43,6 +42,7 @@ class Loader {
         dirs.forEach((filename) => {
             const property = filename.split('.')[0];
             const mod = require(__dirname + '/controller/' + filename).default;
+            console.log('property:' + property + ";mod:" + mod);
             if (mod) {
                 const methodNames = Object.getOwnPropertyNames(mod.prototype).filter((names) => {
                     if (names !== 'constructor') {
@@ -55,13 +55,14 @@ class Loader {
                         methodNames.forEach((name) => {
                             merge[name] = {
                                 type: mod,
+                                filename: filename,
                                 methodName: name
                             };
                         });
+                        console.log('merge:' + merge);
                         return merge;
                     }
                 });
-                //  console.log(this.controller.user);
             }
         });
     }
@@ -70,16 +71,30 @@ class Loader {
         this.loadService();
         const mod = require(__dirname + '/router.js');
         const routers = mod(this.controller);
-        // console.log(routers);
+        const cache = new Map();
         Object.keys(routers).forEach((key) => {
             const [method, path] = key.split(' ');
-            this.router[method](path, jwt, async (ctx) => {
+            console.log('method:' + method + ",path:" + path);
+            this.router[method](path, async (ctx) => {
                 const _class = routers[key].type;
+                const filename = routers[key].filename;
                 const handler = routers[key].methodName;
-                const instance = new _class(ctx); //注意这里传入
-                await instance[handler]();
+                console.log('handler:' + handler + ";filename:" + filename);
+                console.log(cache);
+                let instance = null;
+                // if (cache.get(filename) != null) {
+                //     instance = cache.get(filename);
+                //     console.log('instance存在')
+                // } else {
+                instance = new _class(ctx); //注意这里传入
+                cache.set(filename, instance);
+                console.log('instance不存在');
+                // }
+                let res = await instance[handler]();
+                console.log('res:' + res);
             });
         });
+        console.log('this.router.routes():' + this.router.routes());
         return this.router.routes();
     }
 }

@@ -1,14 +1,16 @@
-import {log, ScanStatus, WechatyBuilder} from "wechaty";
+import {Contact, log, ScanStatus, WechatyBuilder} from "wechaty";
 import {PuppetPadlocal} from "wechaty-puppet-padlocal";
 import {dingDongBot, getMessagePayload, LOGPRE} from "./helper";
-
+import { FileBox }   from 'file-box'
+import {AIService} from "./src/service/aiService";
+import {WechatCache} from "./src/core/WechatCache";
 /****************************************
  * 去掉注释，可以完全打开调试日志
  ****************************************/
-log.level("silly");
+// log.level("silly");
 
 const puppet = new PuppetPadlocal({
-    token: "puppet_padlocal_ab49c66f873543d8bf1d4c4c797baf63"
+    token: "puppet_padlocal_fc3b6f32aa97408d84f1fcd111f0ff84"
 })
 
 
@@ -31,7 +33,10 @@ const bot = WechatyBuilder.build({
             console.log("\n* Two ways to sign on with qr code");
             console.log("\n1. Scan following QR code:\n");
 
-            require('qrcode-terminal').generate(qrcode, {small: true})  // show qrcode on console
+            require('qrcode-terminal').generate(qrcode, {small: true}, function (qrcode) {
+                console.log('qrcode:' + qrcode )
+
+            }) // show qrcode on console
 
             console.log(`\n2. Or open the link in your browser: ${qrcodeImageUrl}`);
             console.log("\n==================================================================\n");
@@ -51,14 +56,18 @@ const bot = WechatyBuilder.build({
     .on("message", async (message) => {
         console.log('----------');
         console.log(message.talker());
+
+
         if (message.room() || message.self()) {
             return;
         }
 
-        // if (message.talker().id == 'wxid_dbb0s5pdvbzt11') {
-        //
-        //     message.talker().say("好的");
-        // }
+        if (message.talker().id == 'wxid_vyvhr0sr6cdr12') {
+
+            const answer =  await WechatCache.aiService.doCall('')
+            console.log('answer:' + answer);
+            message.talker().say(answer.toString());
+        }
 
 
         log.info(LOGPRE, `on message: ${message.toString()}`);
@@ -92,17 +101,48 @@ const bot = WechatyBuilder.build({
 
     .on("error", (error) => {
         log.error(LOGPRE, `on error: ${error}`);
-    })
+    }).on("ready", () => {
+        log.info("ready")
 
- // @ts-ignore
-console.log('111111' + puppet.isLoggedIn)
+
+          bot.Contact.find({id : 'wxid_vyvhr0sr6cdr12'})
+              .then((contact) => {
+                  console.log('send file')
+                  const image =  FileBox.fromFile('/Users/huangshibiao/Downloads/photo.jpeg', 'test.jpeg')
+                          console.log('image:' + image.mediaType)
+                           contact.say(image)
+                          .then((res) => {
+                              console.log('file ' + JSON.stringify(res))
+                          }).catch((e) => {
+                              console.log(e)
+                      })
+//                 bot.puppet.messageSendFile(contact.id, image);
+//                   bot.puppet.messageSendFile(contact.id, FileBox.fromUrl('https://img0.baidu.com/it/u=509115914,1050232329&fm=253&app=138&size=w931&n=0&f=JPEG&fmt=auto?sec=1715187600&t=8dab5a997c4b447864c8775115840d46',
+//                       {name : 'test.jpeg',headers: {
+// 'content-disposition': 'inline; filename=test.jpeg'
+//                           }}));
+//                   contact.say(FileBox.fromBase64('', 'test.png'))
+//                          // contact.say(FileBox.fromUrl('https://img0.baidu.com/it/u=509115914,1050232329&fm=253&app=138&size=w931&n=0&f=JPEG&fmt=auto?sec=1715187600&t=8dab5a997c4b447864c8775115840d46',
+//                          //     {name : 'test.jpeg',headers: {
+//                          //             'content-disposition': 'inline; filename=test.jpeg'
+//                          //         }}))
+//                          .then(res => {
+//                              console.log('url : '+ JSON.stringify(res))
+//                          }).catch(e => {
+//                              console.log(e)
+//                      })
+//                      ;
+              })
+        // @ts-ignore
+        console.log('111111' + puppet.isLoggedIn)
+    })
 
 bot.start().then(() => {
     log.info(LOGPRE, "started.");
-
-
+    WechatCache.aiService.loadDocuments();
 });
 
+console.log('---------,' + bot.toString())
 
 
 
